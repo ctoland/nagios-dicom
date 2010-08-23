@@ -1,0 +1,71 @@
+#!/usr/bin/ruby
+# Copyright 2009 Christopher Toland
+# check_dicom based on the check_dcm script by Ron Sweeney
+
+#README:
+
+# requirements:
+#  ruby
+#  java (for dcm3che2)
+#  dcm4che2
+
+# installation:
+#   1) install java and ruby if not already present
+#   2) download and unzip the dcm4che2-bin from dcm4che.org
+#   3) the first line of the file needs reflect your path to ruby
+#   4) edit the path to dcmecho below to reflect where you unzipped dcm4che2
+#   5) edit the nagios check_commands.cfg file and add:
+#       define command{
+#            command_name    check_dicom
+#            command_line    $USER1$/check_dicom  $ARG1$ $ARG2$ $HOSTADDRESS$ $ARG3$
+#            }
+#   6) edit the nagios services.cfg, here is a sample
+#       define service{
+#           use                             local-service
+#           host_name                       PACSSERVER
+#           service_description             DICOM
+#           check_command                   check_dicom!DCMSCU!DCMSCP!11112
+#           notifications_enabled           1
+#           }
+
+
+
+
+require "open3"
+
+
+#set debug flag
+if ARGV.last == "-debug"
+  ARGV.pop
+  debug = true
+end
+
+#check input
+if !(ARGV.size == 4)
+  puts "Usage: #{$0} SCU_AET SCP_AET HOST PORT [-debug]"
+  exit 1
+end
+
+#do the dicom ping
+Open3.popen3("/usr/local/dcm4che/bin/dcmecho -L #{ARGV[0]} #{ARGV[1]}@#{ARGV[2]}:#{ARGV[3]}"){ |stdin, stdout,stderr| 
+       $output = stdout.read
+       $errout = stderr.read }
+
+#check for error
+if (!$errout.empty?) 
+   puts $errout if debug
+   puts "C-ECHO Failed"
+   exit 2
+end
+
+#check for success
+if (!$output.empty?)
+   puts $output if debug
+   puts "Successful C-ECHO"
+   exit 0
+else 
+    puts "Script failure"
+    exit 1
+end 
+
+
